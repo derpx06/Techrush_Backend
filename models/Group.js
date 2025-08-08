@@ -14,8 +14,7 @@ const groupSchema = new mongoose.Schema({
   },
   participants: [
     {
-      // We only need to store the user reference here.
-      // Bill details are now in the dedicated Bill model.
+     
       user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

@@ -15,14 +15,13 @@ const notificationSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    // FIX: Added 'PaymentRequest' and 'PaymentSettled' to the list of allowed types.
     enum: [
         'Club',
         'Event',
         'Group',
         'Payment',
-        'PaymentRequest', // For when a bill is created
-        'PaymentSettled'  // For when a user pays their share
+        'PaymentRequest', 
+        'PaymentSettled'  
     ],
   },
   relatedId: {

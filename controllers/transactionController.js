@@ -81,7 +81,7 @@ exports.getTransactionHistory = async (req, res, next) => {
       $or: [{ sender: req.user._id }, { receiver: req.user._id }],
     })
       .populate('sender receiver', 'name')
-      .sort({ createdAt: -1 }); // 👈 Most recent first
+      .sort({ createdAt: -1 }); 
 
     if (!transactions.length) {
       return res.status(404).json({ message: 'No transactions found.' });
