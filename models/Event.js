@@ -1,4 +1,3 @@
-// models/Event.js
 const mongoose = require('mongoose');
 
 const eventSchema = new mongoose.Schema({
@@ -14,6 +13,7 @@ const eventSchema = new mongoose.Schema({
   club: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Club',
+    default: undefined // Don't set null if missing
   },
   creator: {
     type: mongoose.Schema.Types.ObjectId,
@@ -55,5 +55,19 @@ const eventSchema = new mongoose.Schema({
     default: 'Public',
   },
 }, { timestamps: true });
+
+eventSchema.set('toJSON', {
+  transform: (doc, ret) => {
+    if (!ret.club) delete ret.club;
+    return ret;
+  }
+});
+
+eventSchema.set('toObject', {
+  transform: (doc, ret) => {
+    if (!ret.club) delete ret.club;
+    return ret;
+  }
+});
 
 module.exports = mongoose.model('Event', eventSchema);
