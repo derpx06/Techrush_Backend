@@ -31,9 +31,10 @@ exports.createClub = async (req, res, next) => {
       name,
       description,
       creator: req.user._id,
+      organizers: [req.user._id],
       eventType,
       ticketPrice: eventType === 'Paid' ? ticketPrice : 0,
-      coverImage: coverImage,
+      coverImage
     });
 
     await club.save();
@@ -54,7 +55,6 @@ exports.joinClub = async (req, res, next) => {
     if (!club) return res.status(404).json({ message: 'Club not found.' });
 
     const userId = req.user._id;
-
     const alreadyMember = club.members.some(m => m.user.equals(userId));
     const alreadyOrganizer = club.organizers.some(o => o._id.equals(userId));
 
@@ -68,7 +68,7 @@ exports.joinClub = async (req, res, next) => {
         receiver: club.organizers[0]._id,
         amount: club.ticketPrice,
         description: `Membership fee for joining ${club.name}`,
-        status: 'Completed',
+        status: 'Completed'
       });
       await transaction.save();
     }
@@ -92,7 +92,7 @@ exports.joinClub = async (req, res, next) => {
 
 exports.getAllClubs = async (req, res, next) => {
   try {
-    const clubs = await Club.find().select('name description coverImage eventType');
+    const clubs = await Club.find().select('name description coverImage eventType ticketPrice');
     res.status(200).json(clubs);
   } catch (error) {
     next(error);
