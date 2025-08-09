@@ -50,9 +50,19 @@ exports.createEvent = async (req, res, next) => {
 };
 exports.getAllPublicEvents = async (req, res, next) => {
   try {
-    const events = await Event.find({ visibility: 'Public', date: { $gte: new Date() } })
+    let events = await Event.find({ visibility: 'Public', date: { $gte: new Date() } })
       .populate('club', 'name')
-      .sort({ date: 1 });
+      .sort({ date: 1 })
+      .lean();
+
+    events = events.map(event => {
+      if (!event.club) {
+        const { club, ...rest } = event;
+        return rest;
+      }
+      return event;
+    });
+
     res.status(200).json(events);
   } catch (error) {
     next(error);
