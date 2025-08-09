@@ -59,7 +59,7 @@ exports.createEvent = async (req, res, next) => {
 exports.getAllPublicEvents = async (req, res, next) => {
   try {
     const events = await Event.find({ visibility: 'Public', date: { $gte: new Date() } })
-      .populate('name')
+      .populate('club', 'name')
       .sort({ date: 1 })
       .lean();
 
