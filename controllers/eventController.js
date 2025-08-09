@@ -8,18 +8,23 @@ const logger = require('../utils/logger');
 exports.createEvent = async (req, res, next) => {
   try {
     const { clubId, title, description, date, location, eventType, ticketPrice, capacity, visibility } = req.body;
-    
-    const club = await Club.findById(clubId);
-   
 
-    if (!club.organizers.includes(req.user._id)) {
-      if (req.file) await fs.unlink(req.file.path);
-      return res.status(403).json({ message: 'Forbidden. Only organizers of this club can create events.' });
+    let club = null;
+    if (clubId) {
+      club = await Club.findById(clubId);
+      if (!club) {
+        if (req.file) await fs.unlink(req.file.path);
+        return res.status(404).json({ message: 'Club not found.' });
+      }
+      if (!club.organizers.includes(req.user._id)) {
+        if (req.file) await fs.unlink(req.file.path);
+        return res.status(403).json({ message: 'Forbidden. Only organizers of this club can create events.' });
+      }
     }
 
     if (eventType === 'Paid' && (!ticketPrice || ticketPrice <= 0)) {
-        if (req.file) await fs.unlink(req.file.path);
-        return res.status(400).json({ message: 'Paid events must have a ticket price greater than zero.' });
+      if (req.file) await fs.unlink(req.file.path);
+      return res.status(400).json({ message: 'Paid events must have a ticket price greater than zero.' });
     }
 
     const coverImage = req.file ? `/uploads/${req.file.filename}` : '';
@@ -27,7 +32,7 @@ exports.createEvent = async (req, res, next) => {
     const event = new Event({
       title,
       description,
-      club: clubId,
+      club: clubId || null,
       creator: req.user._id,
       date,
       location,
@@ -39,7 +44,7 @@ exports.createEvent = async (req, res, next) => {
     });
 
     await event.save();
-    logger.info(`New event "${title}" created for club "${club.name}"`);
+    logger.info(`New event "${title}" created${club ? ` for club "${club.name}"` : ''}`);
     res.status(201).json({ message: 'Event created successfully', event });
 
   } catch (error) {
@@ -49,6 +54,7 @@ exports.createEvent = async (req, res, next) => {
     next(error);
   }
 };
+
 
 exports.getAllPublicEvents = async (req, res, next) => {
   try {
