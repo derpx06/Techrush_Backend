@@ -8,7 +8,6 @@ const logger = require('../utils/logger');
 exports.createEvent = async (req, res, next) => {
   try {
     const { clubId, title, description, date, location, eventType, ticketPrice, capacity, visibility } = req.body;
-
     let club = null;
     if (clubId) {
       club = await Club.findById(clubId);
@@ -21,14 +20,11 @@ exports.createEvent = async (req, res, next) => {
         return res.status(403).json({ message: 'Forbidden. Only organizers of this club can create events.' });
       }
     }
-
     if (eventType === 'Paid' && (!ticketPrice || ticketPrice <= 0)) {
       if (req.file) await fs.unlink(req.file.path);
       return res.status(400).json({ message: 'Paid events must have a ticket price greater than zero.' });
     }
-
     const coverImage = req.file ? `/uploads/${req.file.filename}` : '';
-
     const event = new Event({
       title,
       description,
@@ -42,11 +38,9 @@ exports.createEvent = async (req, res, next) => {
       visibility,
       coverImage,
     });
-
     await event.save();
     logger.info(`New event "${title}" created${club ? ` for club "${club.name}"` : ''}`);
     res.status(201).json({ message: 'Event created successfully', event });
-
   } catch (error) {
     if (req.file) {
       await fs.unlink(req.file.path).catch(err => console.error("Error deleting file on failure:", err));
@@ -55,10 +49,9 @@ exports.createEvent = async (req, res, next) => {
   }
 };
 
-
 exports.getAllPublicEvents = async (req, res, next) => {
   try {
-    const events = await Event.find({ visibility: 'Public', date: { $gte: new Date() } })
+    const events = await Event.find({ visibility: 'Public', date: { $gte: new Date() }, club: { $ne: null } })
       .populate('club', 'name')
       .sort({ date: 1 });
     res.status(200).json(events);
@@ -73,7 +66,6 @@ exports.getEventDetails = async (req, res, next) => {
       .populate('club', 'name coverImage')
       .populate('creator', 'name profilePicture')
       .populate('attendees', 'name profilePicture');
-      
     if (!event) {
       return res.status(404).json({ message: 'Event not found.' });
     }
@@ -89,17 +81,13 @@ exports.registerForEvent = async (req, res, next) => {
     if (!event) {
       return res.status(404).json({ message: 'Event not found.' });
     }
-
     const userId = req.user._id;
-
     if (event.attendees.includes(userId)) {
       return res.status(400).json({ message: 'You are already registered for this event.' });
     }
-
     if (event.capacity && event.attendees.length >= event.capacity) {
       return res.status(400).json({ message: 'Sorry, this event is full.' });
     }
-
     if (event.eventType === 'Paid') {
       const newTransaction = new Transaction({
         sender: userId,
@@ -110,20 +98,16 @@ exports.registerForEvent = async (req, res, next) => {
       });
       await newTransaction.save();
     }
-
     event.attendees.push(userId);
     await event.save();
-
     await new Notification({
       user: userId,
       message: `You have successfully registered for the event: "${event.title}".`,
       type: 'Event',
       relatedId: event._id
     }).save();
-
     logger.info(`${req.user.name} registered for event "${event.title}"`);
     res.status(200).json({ message: 'Successfully registered for the event!', event });
-
   } catch (error) {
     next(error);
   }
