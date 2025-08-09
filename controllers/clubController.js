@@ -1,4 +1,3 @@
-// controllers/clubController.js
 const Club = require('../models/Club');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
@@ -6,19 +5,18 @@ const Transaction = require('../models/Transaction');
 const logger = require('../utils/logger');
 const fs = require('fs').promises;
 
-// Create a Club
 exports.createClub = async (req, res, next) => {
   try {
-    const { name, description, eventType,ticketPrice , subscriptionFrequency } = req.body;
+    const { name, description, eventType, ticketPrice } = req.body;
 
     if (!name || !description) {
       if (req.file) await fs.unlink(req.file.path);
       return res.status(400).json({ message: 'Club name and description are required.' });
     }
 
-    if (membershipType === 'Subscription' && (!subscriptionFee || subscriptionFee <= 0)) {
+    if (eventType === 'Paid' && (!ticketPrice || ticketPrice <= 0)) {
       if (req.file) await fs.unlink(req.file.path);
-      return res.status(400).json({ message: 'Subscription-based clubs must have a fee greater than zero.' });
+      return res.status(400).json({ message: 'Paid clubs must have a ticket price greater than zero.' });
     }
 
     const clubExists = await Club.findOne({ name });
@@ -33,9 +31,8 @@ exports.createClub = async (req, res, next) => {
       name,
       description,
       creator: req.user._id,
-      membershipType,
-      subscriptionFee: membershipType === 'Subscription' ? subscriptionFee : 0,
-      subscriptionFrequency: membershipType === 'Subscription' ? subscriptionFrequency : null,
+      eventType,
+      ticketPrice: eventType === 'Paid' ? ticketPrice : 0,
       coverImage: coverImage,
     });
 
@@ -65,11 +62,11 @@ exports.joinClub = async (req, res, next) => {
       return res.status(400).json({ message: 'You are already a member or organizer of this club.' });
     }
 
-    if (club.membershipType === 'Subscription') {
+    if (club.eventType === 'Paid') {
       const transaction = new Transaction({
         sender: userId,
         receiver: club.organizers[0]._id,
-        amount: club.subscriptionFee,
+        amount: club.ticketPrice,
         description: `Membership fee for joining ${club.name}`,
         status: 'Completed',
       });
@@ -95,7 +92,7 @@ exports.joinClub = async (req, res, next) => {
 
 exports.getAllClubs = async (req, res, next) => {
   try {
-    const clubs = await Club.find().select('name description coverImage membershipType');
+    const clubs = await Club.find().select('name description coverImage eventType');
     res.status(200).json(clubs);
   } catch (error) {
     next(error);
