@@ -9,7 +9,7 @@ const fs = require('fs').promises;
 // Create a Club
 exports.createClub = async (req, res, next) => {
   try {
-    const { name, description, membershipType, subscriptionFee, subscriptionFrequency } = req.body;
+    const { name, description, eventType,ticketPrice , subscriptionFrequency } = req.body;
 
     if (!name || !description) {
       if (req.file) await fs.unlink(req.file.path);

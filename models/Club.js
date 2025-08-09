@@ -39,7 +39,7 @@ const clubSchema = new mongoose.Schema({
   }],
   membershipType: {
     type: String,
-    enum: ['Free', 'Subscription'],
+    enum: ['Free', 'Paid'],
     default: 'Free',
   },
   subscriptionFee: {
