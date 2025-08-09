@@ -15,7 +15,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 router.post(
-    '/share',
+    '/',
     auth,
     upload.single('image'),
     socialController.shareActivity

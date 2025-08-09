@@ -10,10 +10,7 @@ exports.createEvent = async (req, res, next) => {
     const { clubId, title, description, date, location, eventType, ticketPrice, capacity, visibility } = req.body;
     
     const club = await Club.findById(clubId);
-    if (!club) {
-      if (req.file) await fs.unlink(req.file.path);
-      return res.status(404).json({ message: 'Club not found.' });
-    }
+   
 
     if (!club.organizers.includes(req.user._id)) {
       if (req.file) await fs.unlink(req.file.path);
