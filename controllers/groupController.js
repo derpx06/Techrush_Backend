@@ -31,6 +31,19 @@ exports.createGroup = async (req, res, next) => {
       description,
     });
     await group.save();
+    const notifications = participantIds
+      .filter(id => !id.equals(creatorId))
+      .map(userId => ({
+        user: userId,
+        message: `You've been added to a new group: "${name}" by ${req.user.name}.`,
+        type: 'Group',
+        relatedId: group._id,
+      }));
+
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications);
+    }
+
     logger.info(`Group "${name}" created by ${req.user.email}`);
     res.status(201).json({ message: 'Group created successfully', group });
   } catch (error) {
@@ -38,16 +51,8 @@ exports.createGroup = async (req, res, next) => {
   }
 };
 
-exports.getGroupDetails = async (req, res, next) => {
-    try {
-        const group = await Group.findById(req.params.id)
-          .populate('creator participants.user', 'name email profilePicture');
-        if (!group) return res.status(404).json({ message: 'Group not found' });
-        res.json(group);
-      } catch (error) {
-        next(error);
-      }
-};
+
+
 
 exports.splitBill = async (req, res, next) => {
   if (!req.body || Object.keys(req.body).length === 0) {
@@ -191,35 +196,6 @@ exports.settlePayment = async (req, res, next) => {
     }
 };
 
-exports.getGroupActivity = async (req, res, next) => {
-    try {
-        const { groupId } = req.params;
-        const group = await Group.findById(groupId);
-        if (!group) {
-            return res.status(404).json({ message: 'Group not found.' });
-        }
-        const isParticipant = group.participants.some(p => p.user.equals(req.user._id));
-        if (!isParticipant) {
-            return res.status(403).json({ message: 'Only group members can view activity.' });
-        }
-        const [messages, bills] = await Promise.all([
-            Message.find({ group: groupId }).populate('sender', 'name profilePicture').lean(),
-            Bill.find({ group: groupId }).populate('creator splits.user', 'name profilePicture').lean()
-        ]);
-        const processedBills = bills.map(bill => {
-            const paidCount = bill.splits.filter(s => s.paid).length;
-            const totalCount = bill.splits.length;
-            return {
-                ...bill,
-                paymentStatus: `${paidCount}/${totalCount} Paid`
-            };
-        });
-        const activity = [...messages, ...processedBills].sort((a, b) => a.createdAt - b.createdAt);
-        res.status(200).json(activity);
-    } catch (error) {
-        next(error);
-    }
-};
 exports.getMyGroups = async (req, res, next) => {
   try {
     const userId = req.user._id;
@@ -232,6 +208,11 @@ exports.getMyGroups = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+export const getMyGroups = async () => {
+    await setAuthToken();
+    const response = await axiosInstance.get('/groups/my-groups');
+    return response.data;
 };
 exports.sendGroupMessage = async (req, res, next) => {
     try {
@@ -271,4 +252,45 @@ exports.sendGroupMessage = async (req, res, next) => {
         }
         next(error);
       }
+};
+
+
+exports.getGroupDetails = async (req, res, next) => {
+    try {
+        const group = await Group.findById(req.params.id)
+          .populate('creator participants.user', 'name email profilePicture');
+        if (!group) return res.status(404).json({ message: 'Group not found' });
+        res.json(group);
+      } catch (error) {
+        next(error);
+      }
+};
+
+exports.getGroupActivity = async (req, res, next) => {
+    try {
+        const { groupId } = req.params;
+        const group = await Group.findById(groupId).populate('participants.user', 'name profilePicture');
+        if (!group) {
+            return res.status(404).json({ message: 'Group not found.' });
+        }
+        const isParticipant = group.participants.some(p => p.user.equals(req.user._id));
+        if (!isParticipant) {
+            return res.status(403).json({ message: 'Only group members can view activity.' });
+        }
+        
+        const bills = await Bill.find({ group: groupId }).populate('creator splits.user', 'name profilePicture').lean();
+        
+        const processedBills = bills.map(bill => {
+            const paidCount = bill.splits.filter(s => s.paid).length;
+            const totalCount = bill.splits.length;
+            return {
+                ...bill,
+                paymentStatus: `${paidCount}/${totalCount} Paid`
+            };
+        });
+
+        res.status(200).json({ group, bills: processedBills });
+    } catch (error) {
+        next(error);
+    }
 };
