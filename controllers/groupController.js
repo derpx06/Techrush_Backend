@@ -220,7 +220,19 @@ exports.getGroupActivity = async (req, res, next) => {
         next(error);
     }
 };
+exports.getMyGroups = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const groups = await Group.find({ 'participants.user': userId })
+      .populate('participants.user', 'name profilePicture')
+      .sort({ createdAt: -1 })
+      .limit(10);
 
+    res.status(200).json(groups);
+  } catch (error) {
+    next(error);
+  }
+};
 exports.sendGroupMessage = async (req, res, next) => {
     try {
         const { groupId } = req.params;

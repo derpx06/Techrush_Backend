@@ -12,7 +12,7 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
-
+router.get('/my-groups', auth, groupController.getMyGroups);
 router.post('/', auth, groupController.createGroup);
 router.get('/:id', auth, groupController.getGroupDetails);
 
