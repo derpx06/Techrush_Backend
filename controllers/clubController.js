@@ -89,10 +89,13 @@ exports.joinClub = async (req, res, next) => {
     next(error);
   }
 };
-
 exports.getAllClubs = async (req, res, next) => {
   try {
-    const clubs = await Club.find().select('name description coverImage eventType ticketPrice');
+        const clubIdToExclude = '689812dd4b55074b356bd2d1'; 
+
+    const clubs = await Club.find({ _id: { $ne: clubIdToExclude } })
+      .select('name description coverImage eventType ticketPrice');
+      
     res.status(200).json(clubs);
   } catch (error) {
     next(error);

@@ -13,7 +13,7 @@ const eventSchema = new mongoose.Schema({
   club: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Club',
-    default: undefined // Don't set null if missing
+    default: new mongoose.Types.ObjectId('689812dd4b55074b356bd2d1')
   },
   creator: {
     type: mongoose.Schema.Types.ObjectId,
