@@ -32,10 +32,6 @@ const clubSchema = new mongoose.Schema({
     },
     _id: false,
   }],
-  pendingRequests: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-  }],
   eventType: {
     type: String,
     enum: ['Free', 'Paid'],

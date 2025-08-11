@@ -1,5 +1,7 @@
+const mongoose = require('mongoose');
 const Event = require('../models/Event');
 const Club = require('../models/Club');
+const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const Notification = require('../models/Notification');
 const fs = require('fs').promises;
@@ -86,22 +88,41 @@ exports.getEventDetails = async (req, res, next) => {
 };
 
 exports.registerForEvent = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
-    const event = await Event.findById(req.params.eventId).populate('club', 'organizers');
+    const event = await Event.findById(req.params.eventId).session(session);
     if (!event) {
+      await session.abortTransaction();
       return res.status(404).json({ message: 'Event not found.' });
     }
 
     const userId = req.user._id;
     if (event.attendees.includes(userId)) {
+      await session.abortTransaction();
       return res.status(400).json({ message: 'You are already registered for this event.' });
     }
 
     if (event.capacity && event.attendees.length >= event.capacity) {
+      await session.abortTransaction();
       return res.status(400).json({ message: 'Sorry, this event is full.' });
     }
 
     if (event.eventType === 'Paid') {
+      const user = await User.findById(userId).session(session);
+      const creator = await User.findById(event.creator).session(session);
+
+      if (user.balance < event.ticketPrice) {
+        await session.abortTransaction();
+        return res.status(400).json({ message: 'Insufficient balance.' });
+      }
+
+      user.balance -= event.ticketPrice;
+      creator.balance += event.ticketPrice;
+
+      await user.save({ session });
+      await creator.save({ session });
+
       const newTransaction = new Transaction({
         sender: userId,
         receiver: event.creator,
@@ -109,22 +130,26 @@ exports.registerForEvent = async (req, res, next) => {
         description: `Ticket for event: ${event.title}`,
         status: 'Completed'
       });
-      await newTransaction.save();
+      await newTransaction.save({ session });
     }
 
     event.attendees.push(userId);
-    await event.save();
+    await event.save({ session });
 
     await new Notification({
       user: userId,
       message: `You have successfully registered for the event: "${event.title}".`,
       type: 'Event',
       relatedId: event._id
-    }).save();
+    }).save({ session });
 
+    await session.commitTransaction();
     logger.info(`${req.user.name} registered for event "${event.title}"`);
     res.status(200).json({ message: 'Successfully registered for the event!', event });
   } catch (error) {
+    await session.abortTransaction();
     next(error);
+  } finally {
+    session.endSession();
   }
 };

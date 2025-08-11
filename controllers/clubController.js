@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Club = require('../models/Club');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
@@ -49,52 +50,79 @@ exports.createClub = async (req, res, next) => {
 };
 
 exports.joinClub = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
-    const club = await Club.findById(req.params.clubId).populate('organizers', 'name');
+    const club = await Club.findById(req.params.clubId).session(session);
 
-    if (!club) return res.status(404).json({ message: 'Club not found.' });
+    if (!club) {
+        await session.abortTransaction();
+        return res.status(404).json({ message: 'Club not found.' });
+    }
 
     const userId = req.user._id;
     const alreadyMember = club.members.some(m => m.user.equals(userId));
-    const alreadyOrganizer = club.organizers.some(o => o._id.equals(userId));
+    const alreadyOrganizer = club.organizers.some(o => o.equals(userId));
 
     if (alreadyMember || alreadyOrganizer) {
+      await session.abortTransaction();
       return res.status(400).json({ message: 'You are already a member or organizer of this club.' });
     }
 
     if (club.eventType === 'Paid') {
+      const user = await User.findById(userId).session(session);
+      const creator = await User.findById(club.creator).session(session);
+
+      if (user.balance < club.ticketPrice) {
+        await session.abortTransaction();
+        return res.status(400).json({ message: 'Insufficient balance.' });
+      }
+
+      user.balance -= club.ticketPrice;
+      creator.balance += club.ticketPrice;
+      
+      await user.save({ session });
+      await creator.save({ session });
+
       const transaction = new Transaction({
         sender: userId,
-        receiver: club.organizers[0]._id,
+        receiver: club.creator,
         amount: club.ticketPrice,
         description: `Membership fee for joining ${club.name}`,
         status: 'Completed'
       });
-      await transaction.save();
+      await transaction.save({ session });
     }
 
     club.members.push({ user: userId });
-    await club.save();
+    await club.save({ session });
 
     await new Notification({
       user: userId,
       message: `Welcome to "${club.name}"! You are now a member.`,
       type: 'Club',
       relatedId: club._id
-    }).save();
-
+    }).save({ session });
+    
+    await session.commitTransaction();
     logger.info(`${req.user.email} joined club "${club.name}"`);
     res.status(200).json({ message: 'Successfully joined the club.', club });
   } catch (error) {
+    await session.abortTransaction();
     next(error);
+  } finally {
+    session.endSession();
   }
 };
+
 exports.getAllClubs = async (req, res, next) => {
   try {
-        const clubIdToExclude = '689812dd4b55074b356bd2d1'; 
+    const clubIdToExclude = '689812dd4b55074b356bd2d1'; 
 
     const clubs = await Club.find({ _id: { $ne: clubIdToExclude } })
-      .select('name description coverImage eventType ticketPrice');
+      .populate('members.user', 'name profilePicture')
+      .populate('organizers', 'name profilePicture')
+      .select('name description coverImage eventType ticketPrice members organizers');
       
     res.status(200).json(clubs);
   } catch (error) {

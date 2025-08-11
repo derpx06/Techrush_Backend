@@ -180,9 +180,9 @@ exports.settlePayment = async (req, res, next) => {
     try {
         session.startTransaction();
         const bill = await Bill.findById(billId)
-            .populate('creator', 'name')
             .populate('group', 'name')
             .session(session);
+
         if (!bill) {
             await session.abortTransaction();
             return res.status(404).json({ message: 'Bill not found' });
@@ -196,9 +196,24 @@ exports.settlePayment = async (req, res, next) => {
             await session.abortTransaction();
             return res.status(400).json({ message: 'You have already settled this payment.' });
         }
+
+        const payer = await User.findById(userId).session(session);
+        const receiver = await User.findById(bill.creator).session(session);
+
+        if (payer.balance < split.amount) {
+            await session.abortTransaction();
+            return res.status(400).json({ message: 'Insufficient balance.' });
+        }
+
+        payer.balance -= split.amount;
+        receiver.balance += split.amount;
+
+        await payer.save({ session });
+        await receiver.save({ session });
+
         const newTransaction = new Transaction({
             sender: userId,
-            receiver: bill.creator._id,
+            receiver: bill.creator,
             amount: split.amount,
             description: `Settled bill: "${bill.description}" in group "${bill.group.name}"`,
             status: 'Completed'
@@ -206,9 +221,9 @@ exports.settlePayment = async (req, res, next) => {
         await newTransaction.save({ session });
         split.paid = true;
         await bill.save({ session });
-        if (!bill.creator._id.equals(userId)) {
+        if (!bill.creator.equals(userId)) {
             const notification = new Notification({
-                user: bill.creator._id,
+                user: bill.creator,
                 message: `${req.user.name} paid their share of ₹${split.amount.toFixed(2)} for "${bill.description}".`,
                 type: 'PaymentSettled',
                 relatedId: bill._id,

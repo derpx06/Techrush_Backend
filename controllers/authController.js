@@ -1,5 +1,3 @@
-// controllers/authController.js
-
 const User = require('../models/User');
 const BankDetails = require('../models/BankDetails');
 const bcrypt = require('bcryptjs');
@@ -7,7 +5,6 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs').promises;
 const path = require('path');
 
-//User Registeration
 exports.register = async (req, res, next) => {
   try {
     const { name, email, password, role, description } = req.body;
@@ -79,7 +76,6 @@ exports.updateProfile = async (req, res, next) => {
   }
 };
 
-
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -87,7 +83,6 @@ exports.login = async (req, res, next) => {
 
     const user = await User.findOne({ email }).select('+password');
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
-    console.log(`User Logged in ${email}`)
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
@@ -118,6 +113,17 @@ exports.getUserProfile = async (req, res, next) => {
   }
 };
 
+exports.getBalance = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user.id).select('balance');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+        res.status(200).json({ balance: user.balance });
+    } catch (error) {
+        next(error);
+    }
+};
 
 exports.addBankDetails = async (req, res, next) => {
     try {
@@ -147,7 +153,6 @@ exports.addBankDetails = async (req, res, next) => {
         next(error);
     }
 };
-
 
 exports.getBankDetails = async (req, res, next) => {
     try {

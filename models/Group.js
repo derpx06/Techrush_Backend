@@ -32,7 +32,6 @@ const groupSchema = new mongoose.Schema({
   },
 });
 
-// Efficient queries
 groupSchema.index({ 'participants.user': 1 });
 
 module.exports = mongoose.model('Group', groupSchema);
